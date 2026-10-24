@@ -38,6 +38,10 @@ extern uint16_t calibration_value;
 
 /* Current setpoint after all constraints are taken into account. */
 extern uint16_t current_setpoint;
+/* Runtime current calibration, set by calibration_init(). Definition:
+   PWM = (current * cal_m - cal_t) / 2^16. */
+extern uint32_t cal_m;
+extern int32_t cal_t;
 extern uint32_t mAmpere_seconds;
 extern uint32_t mWatt_seconds;
 

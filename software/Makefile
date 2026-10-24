@@ -7,7 +7,7 @@ STLINK_VERSION=2
 
 MAIN=electronic_load.c
 SRC=tm1650.c uart.c utils.c fan.c ui.c systick.c load.c settings.c \
- 	adc.c beeper.c menu_items.c
+ 	adc.c beeper.c menu_items.c calibration.c
 BUILDDIR=build
 
 SRC:=$(MAIN) $(SRC)

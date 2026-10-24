@@ -17,6 +17,13 @@ uint8_t load_disable_reason = DISABLE_USER;
 
 error_t error = ERROR_NONE;
 
+/* Runtime current calibration. Defaults are the compile-time constants from
+   config.h; calibration_init() replaces them from the EEPROM when a valid
+   calibration block is stored there.
+   Definition: PWM = (current * cal_m - cal_t) / 2^16 */
+uint32_t cal_m = LOAD_CAL_M;
+int32_t cal_t = LOAD_CAL_T;
+
 /* Calibration mode (unfinished) */
 calibration_t calibration_step;
 uint16_t calibration_value;
@@ -66,12 +73,15 @@ static inline void load_update()
         return;
     }
 
-    /* Calibration mode */
+    /* Calibration mode (unfinished), outputs raw PWM and bypasses all current
+       limits and other protections. Debug builds only. */
+    #ifdef DEBUG
     if (calibration_step == CAL_CURRENT) {
         TIM1->CCR1H = calibration_value >> 8;
         TIM1->CCR1L = calibration_value & 0xff;
         return;
     }
+    #endif
 
     switch (settings.mode) {
         case MODE_CC:
@@ -158,11 +168,19 @@ static inline void load_update()
     }
     current_setpoint = current;
 
-    /* Convert current to PWM value */
-    uint32_t tmp = current;
-    tmp = tmp * LOAD_CAL_M - LOAD_CAL_T;
-    TIM1->CCR1H = tmp >> 24;
-    TIM1->CCR1L = tmp >> 16;
+    /* Convert current to PWM value: PWM = (current * m - t) / 2^16.
+       current * m can exceed uint32 for the largest allowed slope
+       (700000 * 10000 mA = 7e9 > 2^32), so both constants are used in Q4:
+       current * m_q4 stays below 2^31 and the shift by 12 below removes
+       the Q4 factor to divide by 2^16 like above. */
+    uint16_t m_q4 = (cal_m + 8) >> 4; // slope rounded to nearest 16 (err <= 8)
+    int32_t t_q4 = cal_t >> 4;
+    int32_t tmp = (int32_t)current * m_q4 - t_q4;
+    if (tmp < 0) tmp = 0; // below the first PWM code (unreachable via the modes)
+    tmp >>= 12;
+    if (tmp > 0xFFFF) tmp = 0xFFFF;
+    TIM1->CCR1H = tmp >> 8;
+    TIM1->CCR1L = tmp & 0xff;
 
     /* Check cutoff voltage */
     if (load_active && settings.cutoff_enabled && voltage < settings.cutoff_voltage) {

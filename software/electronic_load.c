@@ -6,6 +6,7 @@
 #include "systick.h"
 #include "settings.h"
 #include "load.h"
+#include "calibration.h"
 #include "fan.h"
 #include "adc.h"
 #include "beeper.h"
@@ -62,6 +63,7 @@ void main(void) {
     beeper_init();
     fan_init();
     settings_init();
+    calibration_init();
 
     __asm__ ("rim");
     

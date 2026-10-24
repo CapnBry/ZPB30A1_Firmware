@@ -53,9 +53,18 @@
    Note: The values below were measured on the author's unit. For a different
    unit the load current can be far off the setpoint. See calibration.md in
    the repository root for the measurement and fitting procedure.
+   They are also the default and fallback for the runtime calibration in
+   calibration.c: without a valid calibration in the EEPROM exactly these
+   values are used.
 */
 #define LOAD_CAL_T 8821987L
 #define LOAD_CAL_M 350445L
+
+/* Runtime current calibration (calibration.c):
+   Default measurement points (mA) and the wizard inactivity timeout. */
+#define CAL_CURR_LO_DEFAULT 500
+#define CAL_CURR_HI_DEFAULT 3000
+#define CAL_TIMEOUT_MS 60000
 
 /* Maximum: 64 */
 #define ADC_SAMPLES_PER_MEASUREMENT 64

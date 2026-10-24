@@ -3,23 +3,8 @@
 #include "settings.h"
 #include "config.h"
 
-const MenuItem menu_main;
-    const MenuItem menu_run;
-    static const MenuItem menu_mode;
-        static const MenuItem menu_mode_CC;
-        static const MenuItem menu_mode_CV;
-        static const MenuItem menu_mode_R;
-        static const MenuItem menu_mode_P;
-    static const MenuItem menu_value;
-    static const MenuItem menu_current_limit;
-    static const MenuItem menu_settings;
-        static const MenuItem menu_beep;
-        static const MenuItem menu_cutoff;
-            static const MenuItem menu_cutoff_enabled;
-            static const MenuItem menu_cutoff_value;
-        static const MenuItem menu_max_power_action;
-    static const MenuItem menu_info;
-    static const MenuItem menu_clear_counters;
+/* Note: The menu items must be defined before they are referenced, since a
+   tentative declaration followed by a definition is rejected by SDCC >= 4. */
 
 static const MenuItem menu_on = {
     .caption = "ON ",
@@ -29,26 +14,6 @@ static const MenuItem menu_on = {
 static const MenuItem menu_off = {
     .caption = "OFF",
     .value = 0
-};
-
-
-const MenuItem menu_main = {
-    .caption = "Main",
-    .handler = &ui_submenu,
-    .subitems = { &menu_run, &menu_mode, &menu_value,  &menu_settings, &menu_clear_counters, &menu_info, 0}
-};
-
-static const MenuItem menu_settings = {
-    .caption = "...",
-    .handler = &ui_submenu,
-    .subitems = { &menu_current_limit, &menu_cutoff, &menu_max_power_action, &menu_beep, 0}
-};
-
-static const MenuItem menu_mode = {
-    .caption = "MODE",
-    .handler = &ui_select_item,
-    .data = &settings.mode,
-    .subitems = {&menu_mode_CV,  &menu_mode_CC, &menu_mode_R, &menu_mode_P, 0}
 };
 
 static const MenuItem menu_mode_CC = {
@@ -111,12 +76,6 @@ static const MenuItem menu_beep = {
     .subitems = {&menu_on,  &menu_off,  0}
 };
 
-static const MenuItem menu_cutoff = {
-    .caption = "CUTO",
-    .handler = &ui_submenu,
-    .subitems = {&menu_cutoff_enabled, &menu_cutoff_value, 0}
-};
-
 static const MenuItem menu_cutoff_enabled = {
     .caption = "ENAB",
     .handler = &ui_select_item,
@@ -164,12 +123,6 @@ static const MenuItem menu_max_power_action = {
     .subitems = {&menu_off,  &menu_lim,  0}
 };
 
-const MenuItem menu_run = {
-    .caption = "RUN ",
-    .handler = &ui_run_mode,
-    .subitems = {&menu_value, 0},
-};
-
 static const MenuItem menu_info = {
     .caption = "INFO",
     .handler = &ui_info_mode,
@@ -178,6 +131,37 @@ static const MenuItem menu_info = {
 static const MenuItem menu_clear_counters = {
     .caption = "CLR",
     .handler = &ui_clear_counters,
+};
+
+const MenuItem menu_run = {
+    .caption = "RUN ",
+    .handler = &ui_run_mode,
+    .subitems = {&menu_value, 0},
+};
+
+static const MenuItem menu_mode = {
+    .caption = "MODE",
+    .handler = &ui_select_item,
+    .data = &settings.mode,
+    .subitems = {&menu_mode_CV,  &menu_mode_CC, &menu_mode_R, &menu_mode_P, 0}
+};
+
+static const MenuItem menu_cutoff = {
+    .caption = "CUTO",
+    .handler = &ui_submenu,
+    .subitems = {&menu_cutoff_enabled, &menu_cutoff_value, 0}
+};
+
+static const MenuItem menu_settings = {
+    .caption = "...",
+    .handler = &ui_submenu,
+    .subitems = { &menu_current_limit, &menu_cutoff, &menu_max_power_action, &menu_beep, 0}
+};
+
+const MenuItem menu_main = {
+    .caption = "Main",
+    .handler = &ui_submenu,
+    .subitems = { &menu_run, &menu_mode, &menu_value,  &menu_settings, &menu_clear_counters, &menu_info, 0}
 };
 
 const MenuItem menu_error = {

@@ -8,7 +8,8 @@ This repository is there to build an open-source firmware for the 60W ZPB30A1 el
     * CP: Constant power
     * CV: Constant voltage (slow regulation due to hardware limitations)
 * Easily usable menu system with many configuration options
-* Logging of all operating parameters via UART.
+* Logging of all operating parameters via UART (see
+  [serial protocol.md](serial%20protocol.md)).
 * Much better accuracy than stock firmware.
 * Clean firmware structure for easy extendability.
 
@@ -52,6 +53,14 @@ Then you write the new firmware with
 and if you are flashing for the first time you should also clear the EEPROM:
 
     make clear_eeprom
+
+## Calibration
+
+The current setpoint accuracy is unit-specific: the constants shipped in
+`software/config.h` come from the author's device, and on a different unit
+the real current can deviate substantially from the setpoint (20% and more).
+Before relying on the setpoints, do a calibration pass for your unit as
+described in [calibration.md](calibration.md).
 
 ## Menu
 Contrary to the original firmware which requires rebooting to change modes this

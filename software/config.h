@@ -49,6 +49,10 @@
 
 /* Defintion of t and m:
    PWM = (current *  m - t) / 2^16
+
+   Note: The values below were measured on the author's unit. For a different
+   unit the load current can be far off the setpoint. See calibration.md in
+   the repository root for the measurement and fitting procedure.
 */
 #define LOAD_CAL_T 8821987L
 #define LOAD_CAL_M 350445L

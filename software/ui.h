@@ -7,6 +7,17 @@
 void ui_init();
 void ui_timer();
 
+/* Result of a numeric edit (ui_edit_value_internal).
+ * COMMIT: value confirmed and written to *edit->var.
+ * CANCEL: editing aborted, *edit->var unchanged. */
+typedef enum {
+    UI_EDIT_ACTIVE,
+    UI_EDIT_COMMIT,
+    UI_EDIT_CANCEL,
+} ui_edit_result_t;
+
+ui_edit_result_t ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds);
+
 void ui_mainmenu(uint8_t event, MenuItem *item);
 void ui_submenu(uint8_t event, MenuItem *item);
 void ui_select_item(uint8_t event, MenuItem *item);

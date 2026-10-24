@@ -41,7 +41,9 @@ static uint8_t display_mode[] = {DISP_MODE_BRIGHT, DISP_MODE_BRIGHT};
 static bool blink_state = false;
 static uint8_t led_state = 0;
 
-#define MENU_STACK_DEPTH 5
+/* Maximum menu depth: main -> settings -> submenu -> submenu -> edit value,
+   with one level left for the error menu which is pushed on top of any depth. */
+#define MENU_STACK_DEPTH 6
 static const MenuItem *menu_stack[MENU_STACK_DEPTH];
 static uint8_t menu_subitem_index[MENU_STACK_DEPTH];
 static uint8_t menu_stack_head = 0;
@@ -230,6 +232,11 @@ static uint8_t ui_num_subitem(const MenuItem *item)
 /* Show a new menu. */
 static void ui_push_item(const MenuItem *item)
 {
+    /* Bounds guard: keep one stack slot free for the error menu, which
+       ui_timer() pushes from any depth. ui_timer() retries every tick. */
+    if (menu_stack_head >= MENU_STACK_DEPTH - 1) {
+        return;
+    }
     menu_stack_head++;
     current_item = item;
     current_subitem_index = 0;
@@ -345,14 +352,18 @@ void ui_select_item(uint8_t event, const MenuItem *item)
 
 //TODO: Change step size depeding on encoder speed
 /* Edit numeric values. This function encapsulates almost all the logic
-   except setting the secondard display's value and selecting the LEDs. */
-void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds)
+   except setting the secondard display's value and selecting the LEDs.
+   The caller must pop the current menu item when the return value is
+   UI_EDIT_COMMIT or UI_EDIT_CANCEL. COMMIT persists the new value in
+   *edit->var, CANCEL leaves it unchanged. */
+ui_edit_result_t ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds)
 {
     static uint16_t value;
     uint8_t display = DP_BOT, display2 = DP_TOP;
+    ui_edit_result_t result = UI_EDIT_ACTIVE;
     if (event == EVENT_PREVIEW) {
         ui_number(*edit->var, edit->dot_offset, display);
-        return;
+        return result;
     }
 
     uint16_t inc;
@@ -367,8 +378,6 @@ void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds
         inc *= 10;
     }
 
-    bool pop = false;
-
     switch (event) {
     case EVENT_ENTER:
         ui_set_display_mode(DISP_MODE_BRIGHT, display);
@@ -378,7 +387,7 @@ void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds
         current_subitem_index = 0;
         break;
     case EVENT_RUN_BUTTON:
-        pop = true;
+        result = UI_EDIT_CANCEL;
         break;
     case EVENT_ENCODER_BUTTON:
         if (current_subitem_index == 0) {
@@ -386,7 +395,7 @@ void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds
             ui_leds(leds | LED_DIGIT2);
         } else {
             *edit->var = value;
-            pop = true;
+            result = UI_EDIT_COMMIT;
         }
         break;
     case EVENT_ENCODER_UP:
@@ -404,12 +413,18 @@ void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds
         }
         break;
     }
-    bool output = !pop && event & (EVENT_BITMASK_MENU | EVENT_BITMASK_ENCODER);
+    bool output = result == UI_EDIT_ACTIVE && event & (EVENT_BITMASK_MENU | EVENT_BITMASK_ENCODER);
     if (output) {
         ui_number(value, edit->dot_offset, display);
     }
-    if (pop) {
-        // Pop must be the last action to avoid overwriting the display
+    return result;
+}
+
+/* Pop the editor's menu item once the edit is done. Must be called after
+   ui_edit_value_internal to avoid overwriting the display of the parent. */
+static void ui_finish_edit(ui_edit_result_t result)
+{
+    if (result != UI_EDIT_ACTIVE) {
         ui_pop_item();
     }
 }
@@ -417,7 +432,7 @@ void ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds
 void ui_edit_value(uint8_t event, const MenuItem *item)
 {
     const NumericEdit *edit = item->data;
-    ui_edit_value_internal(event, edit, item->value);
+    ui_finish_edit(ui_edit_value_internal(event, edit, item->value));
 }
 
 /* Special numeric edit handler for setpoint which changes
@@ -455,7 +470,7 @@ void ui_edit_setpoint(uint8_t event, const MenuItem *item)
             break;
     }
     if (event != EVENT_PREVIEW) ui_text(label, DP_TOP);
-    if (edit) ui_edit_value_internal(event, edit, leds);
+    if (edit) ui_finish_edit(ui_edit_value_internal(event, edit, leds));
 }
 
 /* Show measured values and setpoint in run mode.

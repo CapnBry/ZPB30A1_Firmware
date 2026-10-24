@@ -28,6 +28,12 @@ typedef struct {
 
 extern settings_t settings;
 
+/* Low level EEPROM access. Used by the settings and, separately, by the
+ * calibration block in calibration.c. Writes are skipped when the byte
+ * already contains the requested value. */
+uint8_t eeprom_read(uint16_t address);
+void eeprom_write(uint16_t address, uint8_t data);
+
 void settings_init();
 void settings_update();
 #endif

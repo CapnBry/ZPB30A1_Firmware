@@ -47,7 +47,7 @@ extern bool cal_active;
 /* Control law actually in effect: a calibration run always uses CC,
    regardless of the user's stored mode. settings.mode itself is never
    modified, so nothing is persisted when the wizard pops. */
-static inline sink_mode_t load_control_mode()
+static inline sink_mode_t load_control_mode(void)
 {
     return cal_active ? MODE_CC : settings.mode;
 }
@@ -60,9 +60,9 @@ extern uint32_t mAmpere_seconds;
 extern uint32_t mWatt_seconds;
 
 
-void load_init();
-void load_timer();
-void load_enable();
+void load_init(void);
+void load_timer(void);
+void load_enable(void);
 void load_disable(uint8_t reason);
 
 #endif

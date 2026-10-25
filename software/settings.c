@@ -9,12 +9,12 @@ settings_t settings;
 
 #define _MEM_(mem_addr) (*(volatile uint8_t *)(mem_addr))
 uint8_t eeprom_read(uint16_t address) {
-    return _MEM_(address + FLASH_DATA_START_PHYSICAL_ADDRESS);
+    return _MEM_((uint16_t)(address + FLASH_DATA_START_PHYSICAL_ADDRESS));
 }
 
 void eeprom_write(uint16_t address, uint8_t data) {
     if (eeprom_read(address) == data) return; //Avoid unnecessary writes
-    _MEM_(address + FLASH_DATA_START_PHYSICAL_ADDRESS) = data;
+    _MEM_((uint16_t)(address + FLASH_DATA_START_PHYSICAL_ADDRESS)) = data;
 }
 
 
@@ -32,7 +32,7 @@ static uint8_t settings_calc_checksum(uint8_t *data, uint16_t size)
     return checksum;
 }
 
-void settings_init()
+void settings_init(void)
 {
     uint16_t addr;
     uint8_t *data = (uint8_t*)(&settings);
@@ -56,7 +56,7 @@ void settings_init()
     }
 }
 
-void settings_update()
+void settings_update(void)
 {
     uint16_t addr;
     uint8_t *data = (uint8_t*)(&settings);

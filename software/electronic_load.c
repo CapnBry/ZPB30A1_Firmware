@@ -14,7 +14,7 @@
 #include "inc/stm8s_exti.h"
 #include "inc/stm8s_itc.h"
 
-void clock_init()
+void clock_init(void)
 {
     CLK->CKDIVR = CLK_PRESCALER_HSIDIV1;
     CLK->ICKR |= CLK_ICKR_LSIEN; // Low speed RC for beeper
@@ -25,7 +25,7 @@ void clock_init()
     CLK->CKDIVR = 0;
 }
 
-void gpio_init()
+void gpio_init(void)
 {
     GPIOB->CR1 = PINB_ENC_A | PINB_ENC_B; // Pullup
     GPIOB->CR2 = PINB_ENC_A | PINB_ENC_B; // Irq
@@ -96,14 +96,14 @@ void main(void) {
 }
 
 //Voltage OK interrupt
-void GPIOD_Handler() __interrupt(ITC_IRQ_PORTD) {
+void GPIOD_Handler(void) __interrupt(ITC_IRQ_PORTD) {
 }
 
 /* If you have multiple source files in your project, interrupt service routines
  can be present in any of them, but a prototype of the isr MUST be present or
  included in the file that contains the function main. */
-void ui_encoder_irq() __interrupt(ITC_IRQ_PORTB);
-void ui_button_irq() __interrupt(ITC_IRQ_PORTC);
-void uart_rx_irq() __interrupt(ITC_IRQ_UART2_RX);
-void systick_irq() __interrupt(ITC_IRQ_TIM2_OVF);
-void adc_irq() __interrupt(ITC_IRQ_ADC1);
+void ui_encoder_irq(void) __interrupt(ITC_IRQ_PORTB);
+void ui_button_irq(void) __interrupt(ITC_IRQ_PORTC);
+void uart_rx_irq(void) __interrupt(ITC_IRQ_UART2_RX);
+void systick_irq(void) __interrupt(ITC_IRQ_TIM2_OVF);
+void adc_irq(void) __interrupt(ITC_IRQ_ADC1);

@@ -1,7 +1,7 @@
 #ifndef _TIMER_H_
 #define _TIMER_H_
 #include <stdint.h>
-void systick_init();
+void systick_init(void);
 extern volatile uint32_t systick;
 #define SYSTICK_COUNT 1
 #define SYSTICK_OVERFLOW 2

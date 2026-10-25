@@ -1,9 +1,9 @@
 #ifndef _UART_H_
 #define _UART_H_
 
-void uart_init();
-void uart_timer();
-void uart_handler();
+void uart_init(void);
+void uart_timer(void);
+void uart_handler(void);
 
 #define CMD_RESET '!'
 

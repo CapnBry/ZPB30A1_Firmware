@@ -7,7 +7,7 @@
 
 static bool fan_on = 0;
 
-void fan_init()
+void fan_init(void)
 {
     TIM3->ARRH = FAN_PWM_MAX >> 8;
     TIM3->ARRL = FAN_PWM_MAX & 0xff;
@@ -19,7 +19,7 @@ void fan_init()
     TIM3->CCR2L  = 0;
 }
 
-static void fan_set_pwm()
+static void fan_set_pwm(void)
 {
     if (temperature > FAN_TEMPERATURE_FULL) {
         // Fan at maximum speed
@@ -62,7 +62,7 @@ static void fan_set_pwm()
     }
 }
 
-void fan_timer()
+void fan_timer(void)
 {
     static uint16_t timer = 0;
     timer++;

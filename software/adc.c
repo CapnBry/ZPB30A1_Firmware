@@ -14,7 +14,7 @@ uint16_t v_12V;
 uint16_t v_load;
 uint16_t v_sense;
 
-void adc_init()
+void adc_init(void)
 {
     /* 1 conversion takes 14 ADC cycles. 4 channels are processed in scan mode.
        => 56 ADC cycles per scan.
@@ -35,7 +35,7 @@ void adc_init()
     ADC1->CR1 |= ADC1_CR1_ADON; //Start converting
 }
 
-void adc_irq() __interrupt(ITC_IRQ_ADC1)
+void adc_irq(void) __interrupt(ITC_IRQ_ADC1)
 {
     //TODO: Optimize this function in asm
     // with 32 bit buffers and double buffering this function takes
@@ -58,7 +58,7 @@ void adc_irq() __interrupt(ITC_IRQ_ADC1)
     }
 }
 
-void adc_update()
+void adc_update(void)
 {
     static bool first_update = 1;
 
@@ -103,7 +103,7 @@ void adc_update()
     }
 }
 
-void adc_timer()
+void adc_timer(void)
 {
     static uint8_t adc_incomplete = 0;
 
@@ -135,7 +135,7 @@ void adc_timer()
     adc_update();
 }
 
-uint16_t adc_get_voltage()
+uint16_t adc_get_voltage(void)
 {
   if (v_sense > v_load) return v_sense;
   return v_load;

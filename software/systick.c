@@ -6,7 +6,7 @@
 volatile uint32_t systick = 0;
 volatile uint8_t systick_flag = 0;
 
-void systick_init()
+void systick_init(void)
 {
     #define SYSTICK_PRESCALER 8
     #define SYSTICK_RELOAD (F_CPU / F_SYSTICK / SYSTICK_PRESCALER)
@@ -17,7 +17,7 @@ void systick_init()
     TIM2->CR1    = TIM2_CR1_CEN;
 }
 //TODO: IRQ priorities
-void systick_irq() __interrupt(ITC_IRQ_TIM2_OVF)
+void systick_irq(void) __interrupt(ITC_IRQ_TIM2_OVF)
 {
     if (systick_flag & SYSTICK_COUNT) {
         systick_flag |= SYSTICK_OVERFLOW;

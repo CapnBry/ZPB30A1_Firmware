@@ -4,7 +4,7 @@
 #include "inc/stm8s_beep.h"
 #include "inc/stm8s_flash.h"
 
-void beeper_init()
+void beeper_init(void)
 {
     // Unlock flash
     FLASH->DUKR = FLASH_RASS_KEY2;
@@ -47,21 +47,21 @@ void beeper_init()
     #endif
 }
 
-void beeper_on()
+void beeper_on(void)
 {
     if (settings.beeper_enabled && !(BEEP->CSR & BEEP_CSR_BEEPEN)) {
         BEEP->CSR |= BEEP_CSR_BEEPEN;
     }
 }
 
-void beeper_off()
+void beeper_off(void)
 {
     if (BEEP->CSR & BEEP_CSR_BEEPEN) {
         BEEP->CSR &= ~BEEP_CSR_BEEPEN;
     }
 }
 
-void beeper_toggle()
+void beeper_toggle(void)
 {
     if (BEEP->CSR & BEEP_CSR_BEEPEN) {
         beeper_off();

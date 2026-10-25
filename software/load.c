@@ -34,7 +34,7 @@ int32_t cal_t = LOAD_CAL_T;
 calibration_t calibration_step;
 uint16_t calibration_value;
 
-void load_init()
+void load_init(void)
 {
     #define PWM_RELOAD (F_CPU / F_PWM)
     // I-SET
@@ -59,13 +59,13 @@ void load_disable(uint8_t reason)
     GPIOE->ODR |= PINE_ENABLE;
 }
 
-void load_enable()
+void load_enable(void)
 {
     load_active = 1;
     //actual activation happens in load_update()
 }
 
-static inline void load_update()
+static inline void load_update(void)
 {
     /* Calibration run: the wizard's setpoint replaces the user's; the
        wizard never mutates settings, so nothing here can be persisted. */
@@ -198,7 +198,7 @@ static inline void load_update()
 }
 
 /* Update integrated values (Ah and Wh) */
-static inline void load_calc_power()
+static inline void load_calc_power(void)
 {
     static uint16_t timer = 0;
     static uint8_t power_remainder = 0; //Remainder from last cycle's division
@@ -227,7 +227,7 @@ static inline void load_calc_power()
     }
 }
 
-void load_timer()
+void load_timer(void)
 {
     load_calc_power();
     // Load updates always run at maximum frequency

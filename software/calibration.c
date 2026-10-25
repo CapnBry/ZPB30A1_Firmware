@@ -107,7 +107,7 @@ static int32_t cal_pwm_raw(uint32_t m, int32_t t, uint16_t current)
     return (((int32_t)current * (int32_t)m_q4) - t_q4) >> 12;
 }
 
-void calibration_init()
+void calibration_init(void)
 {
     uint8_t *data = (uint8_t*)(&cal_block);
     for (uint8_t i = 0; i < CAL_EEPROM_SIZE; i++) {
@@ -255,7 +255,7 @@ bool calibration_commit_current(uint16_t i_lo, uint16_t i_hi,
     return true;
 }
 
-bool calibration_save()
+bool calibration_save(void)
 {
     cal_block.crc = cal_crc8(&cal_block);
     /* The magic is written last. Stamping it in the RAM copy as well keeps
@@ -268,7 +268,7 @@ bool calibration_save()
     return ok;
 }
 
-bool calibration_reset()
+bool calibration_reset(void)
 {
     cal_block_default(&cal_block);
     /* Also fall back to the compile-time calibration right away. */

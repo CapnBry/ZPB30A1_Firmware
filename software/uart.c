@@ -7,7 +7,7 @@
 #include "load.h"
 #include "ui.h"
 
-void uart_init()
+void uart_init(void)
 {
     uint16_t uart_div =  (F_CPU + BAUDR/2) / BAUDR;
     UART2->BRR2 = (uart_div >> 12) | (uart_div & 0x0f);
@@ -23,7 +23,7 @@ int putchar(int c)
 }
 
 static uint8_t cnt = 0;
-void uart_timer()
+void uart_timer(void)
 {
     static uint16_t timer = 0;
     timer++;
@@ -52,7 +52,7 @@ static inline void set_error(uint8_t code)
     error_code = code;
 }
 
-void uart_handler()
+void uart_handler(void)
 {
     if (cnt) {
         if (cnt == 1) {
@@ -147,7 +147,7 @@ void uart_handler()
     }
 }
 
-void uart_rx_irq() __interrupt(ITC_IRQ_UART2_RX)
+void uart_rx_irq(void) __interrupt(ITC_IRQ_UART2_RX)
 {
     char c = UART2->DR;
     if (c == CMD_RESET) {

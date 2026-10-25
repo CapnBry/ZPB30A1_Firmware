@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include "menu_items.h"
 
-void ui_init();
-void ui_timer();
+void ui_init(void);
+void ui_timer(void);
 
 /* Result of a numeric edit (ui_edit_value_internal).
  * COMMIT: value confirmed and written to *edit->var.
@@ -30,6 +30,6 @@ void ui_clear_counters(uint8_t event, const MenuItem *item);
 void ui_cal_wizard(uint8_t event, const MenuItem *item);
 void ui_cal_reset(uint8_t event, const MenuItem *item);
 
-void ui_activate_load();
-void ui_disable_load();
+void ui_activate_load(void);
+void ui_disable_load(void);
 #endif

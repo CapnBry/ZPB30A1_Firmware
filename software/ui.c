@@ -57,7 +57,7 @@ static void ui_leds(uint8_t leds);
 static void ui_text(const char *text, uint8_t display);
 static void ui_number(uint16_t num, uint8_t dot, uint8_t display);
 static void ui_push_item(const MenuItem *item);
-static void ui_pop_item();
+static void ui_pop_item(void);
 
 static void ui_set_display_mode(display_mode_t mode, display_t disp)
 {
@@ -69,7 +69,7 @@ static void ui_set_display_mode(display_mode_t mode, display_t disp)
     }
 }
 
-void ui_init()
+void ui_init(void)
 {
     ui_set_display_mode(DISP_MODE_BRIGHT, DP_TOP);
     ui_set_display_mode(DISP_MODE_BRIGHT, DP_BOT);
@@ -84,7 +84,7 @@ void ui_init()
     menu_main.handler(EVENT_ENTER, &menu_main);
 }
 
-static void ui_timer_blink()
+static void ui_timer_blink(void)
 {
     static uint16_t blink_timer = 0;
 
@@ -133,7 +133,7 @@ void ui_error_handler(uint8_t event, const MenuItem *item)
     }
 }
 
-static void ui_timer_beeper()
+static void ui_timer_beeper(void)
 {
     uint8_t timer_value = 0;
     static uint8_t timer = 0;
@@ -158,7 +158,7 @@ static void ui_timer_beeper()
     }
 }
 
-void ui_timer()
+void ui_timer(void)
 {
     ui_timer_blink();
     ui_timer_beeper();
@@ -245,7 +245,7 @@ static void ui_push_item(const MenuItem *item)
 }
 
 /* Return to previous menu. */
-static void ui_pop_item()
+static void ui_pop_item(void)
 {
     /* Never pop the main menu. */
     if (menu_stack_head != 0) {
@@ -665,7 +665,7 @@ static NumericEdit wiz_edit;  /* rebuilt for every editor use */
 /* Full abort: load off (user reason), transient override cleared, back to
    the CAL hub. Idempotent: a wizard that never started or already aborted
    does nothing. */
-static void wiz_abort()
+static void wiz_abort(void)
 {
     if (!wiz_active) return;
     wiz_active = 0;
@@ -1031,7 +1031,7 @@ void ui_cal_reset(uint8_t event, const MenuItem *item)
     }
 }
 
-void ui_activate_load()
+void ui_activate_load(void)
 {
     /* A pending calibration run must not survive the menu being replaced
        (e.g. by the UART run command). */
@@ -1045,7 +1045,7 @@ void ui_activate_load()
     }
 }
 
-void ui_disable_load()
+void ui_disable_load(void)
 {
     load_disable(DISABLE_USER);
     /* A running calibration must not survive an external stop either. */
@@ -1057,7 +1057,7 @@ void ui_disable_load()
 }
 
 //TODO: Correctly handle bouncing encoder
-void ui_encoder_irq() __interrupt(ITC_IRQ_PORTB)
+void ui_encoder_irq(void) __interrupt(ITC_IRQ_PORTB)
 {
     static uint8_t _encoder_dir = 0xFF;
     uint8_t cur = (GPIOB->IDR >> 4) & 3;
@@ -1071,7 +1071,7 @@ void ui_encoder_irq() __interrupt(ITC_IRQ_PORTB)
     _encoder_dir = cur;
 }
 
-void ui_button_irq() __interrupt(ITC_IRQ_PORTC)
+void ui_button_irq(void) __interrupt(ITC_IRQ_PORTC)
 {
     static uint8_t last_input_values = 0xFF;
 

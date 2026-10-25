@@ -98,7 +98,7 @@ extern const cal_channel_t cal_channel_current;
 /* Read the block, validate it and install the stored current calibration in
    cal_m/cal_t (load.c). Falls back to the compile-time defaults whenever the
    block or the current channel is invalid. Never writes the EEPROM. */
-void calibration_init();
+void calibration_init(void);
 
 /* Q4 conversion of a setpoint to the PWM compare value, clamped to
    [0, 0xFFFF]; uses cal_m/cal_t. Total for any uint16_t input: arguments
@@ -137,10 +137,10 @@ bool calibration_commit_current(uint16_t i_lo, uint16_t i_hi,
    verify). Used by calibration_reset(); the wizard must not use it to store
    a new fit, it stages one through calibration_commit_current() instead.
    The load must be disabled while this runs. */
-bool calibration_save();
+bool calibration_save(void);
 
 /* Replace the calibration with the compile-time defaults and store them as a
    valid block with all channel flags cleared. The load must be disabled. */
-bool calibration_reset();
+bool calibration_reset(void);
 
 #endif

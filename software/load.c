@@ -1,5 +1,6 @@
 #include "load.h"
 #include "config.h"
+#include "calibration.h"
 #include "adc.h"
 #include "settings.h"
 #include "inc/stm8s_tim1.h"
@@ -168,19 +169,10 @@ static inline void load_update()
     }
     current_setpoint = current;
 
-    /* Convert current to PWM value: PWM = (current * m - t) / 2^16.
-       current * m can exceed uint32 for the largest allowed slope
-       (700000 * 10000 mA = 7e9 > 2^32), so both constants are used in Q4:
-       current * m_q4 stays below 2^31 and the shift by 12 below removes
-       the Q4 factor to divide by 2^16 like above. */
-    uint16_t m_q4 = (cal_m + 8) >> 4; // slope rounded to nearest 16 (err <= 8)
-    int32_t t_q4 = cal_t >> 4;
-    int32_t tmp = (int32_t)current * m_q4 - t_q4;
-    if (tmp < 0) tmp = 0; // below the first PWM code (unreachable via the modes)
-    tmp >>= 12;
-    if (tmp > 0xFFFF) tmp = 0xFFFF;
-    TIM1->CCR1H = tmp >> 8;
-    TIM1->CCR1L = tmp & 0xff;
+    /* PWM = (current*m - t)/2^16, see calibration.c */
+    uint16_t pwm = calibration_current_to_pwm(current);
+    TIM1->CCR1H = pwm >> 8;
+    TIM1->CCR1L = pwm & 0xff;
 
     /* Check cutoff voltage */
     if (load_active && settings.cutoff_enabled && voltage < settings.cutoff_voltage) {

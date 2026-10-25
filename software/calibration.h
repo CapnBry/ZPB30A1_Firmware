@@ -69,6 +69,7 @@ typedef enum {
     CAL_ERR_GAIN,       /* measured gain outside 0.5 .. 2.0 */
     CAL_ERR_SLOPE,      /* resulting slope outside the sanity range */
     CAL_ERR_OFFSET,     /* resulting offset outside the sanity range */
+    CAL_ERR_PWM,        /* corrected constants cannot realize the points within the PWM range */
 } cal_result_t;
 
 /* Channel descriptors. The wizard (menu) selects a channel by its
@@ -98,6 +99,12 @@ extern const cal_channel_t cal_channel_current;
    cal_m/cal_t (load.c). Falls back to the compile-time defaults whenever the
    block or the current channel is invalid. Never writes the EEPROM. */
 void calibration_init();
+
+/* Q4 conversion of a setpoint to the PWM compare value, clamped to
+   [0, 0xFFFF]; uses cal_m/cal_t. This is the single conversion used by the
+   runtime path (load.c) and by the solver validation, so the two cannot
+   drift apart. */
+uint16_t calibration_current_to_pwm(uint16_t current);
 
 /* Two-point fit for the current channel:
    The setpoints i_lo/i_hi (mA) had been applied and produced the currents

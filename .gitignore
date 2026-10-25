@@ -68,3 +68,6 @@ dkms.conf
 # Others
 TODO
 images/IMG_*
+
+# Host test binary (software/test, not part of the firmware build)
+software/test/test_calibration

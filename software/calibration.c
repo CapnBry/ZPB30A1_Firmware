@@ -92,6 +92,19 @@ static void cal_block_default(cal_block_t *block)
     block->vsense_t = 0;
 }
 
+/* Unclamped PWM for a candidate (m, t) pair, in the same Q4 form as the
+   runtime path. Shared so solver validation cannot drift from load.c.
+   current * m can exceed uint32 for the largest allowed slope
+   (700000 * 10000 mA = 7e9 > 2^32), so both constants are used in Q4:
+   current * m_q4 stays below 2^31 and the shift by 12 removes the Q4
+   factor to divide by 2^16: PWM = (current * m - t) / 2^16. */
+static int32_t cal_pwm_raw(uint32_t m, int32_t t, uint16_t current)
+{
+    uint16_t m_q4 = (uint16_t)((m + 8) >> 4);
+    int32_t  t_q4 = t >> 4;
+    return (((int32_t)current * (int32_t)m_q4) - t_q4) >> 12;
+}
+
 void calibration_init()
 {
     uint8_t *data = (uint8_t*)(&cal_block);
@@ -109,6 +122,14 @@ void calibration_init()
         cal_t = LOAD_CAL_T;
         cal_block_default(&cal_block);
     }
+}
+
+uint16_t calibration_current_to_pwm(uint16_t current)
+{
+    int32_t pwm = cal_pwm_raw(cal_m, cal_t, current);
+    if (pwm < 0)    pwm = 0;
+    if (pwm > 0xFFFF) pwm = 0xFFFF;
+    return (uint16_t)pwm;
 }
 
 cal_result_t calibration_solve(uint16_t i_lo, uint16_t i_hi,
@@ -152,6 +173,14 @@ cal_result_t calibration_solve(uint16_t i_lo, uint16_t i_hi,
        1.4e9, so the sum fits in int32. */
     int32_t t_new = cal_t + b * (int32_t)m_new;
     if (t_new > CAL_T_MAX || t_new < -CAL_T_MAX) return CAL_ERR_OFFSET;
+
+    /* Realizability: the fit must be rebuildable as PWM codes. If the LO
+       point needs a negative PWM the model claims current flows at zero
+       drive (impossible); if the HI point exceeds 0xFFFF the plant cannot
+       reach it. Reject rather than saving constants that get clamped. */
+    int32_t p_lo = cal_pwm_raw(m_new, t_new, i_lo);
+    int32_t p_hi = cal_pwm_raw(m_new, t_new, i_hi);
+    if (p_lo <= 0 || p_hi > 0xFFFF) return CAL_ERR_PWM;
 
     *m_out = m_new;
     *t_out = t_new;

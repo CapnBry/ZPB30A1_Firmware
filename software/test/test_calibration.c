@@ -12,6 +12,12 @@
  *   6. that booting never writes the EEPROM
  *   7. the applied-current error of an accepted fit
  *   8. the property "every accepted fit is realizable at both points"
+ *   9. calibration_commit_current(): success (RAM, mirror semantics,
+ *      exactly one verified EEPROM write, reboot restores the fit)
+ *  10. calibration_commit_current(): out-of-range constants rejected
+ *  11. calibration_commit_current(): EEPROM write failure touches nothing
+ *  12. calibration_commit_current(): unknown flag bits are preserved
+ *  13. calibration_reset(): defaults written, all channel flags cleared
  *
  * The firmware itself is 32-bit integer only. The host test uses double for
  * the simulated plant of test 7 only.
@@ -31,6 +37,8 @@
 #define EE_SIZE 128
 static uint8_t ee[EE_SIZE];
 static uint32_t write_count;
+/* Set to 0 to simulate an EEPROM write failure (writes are dropped). */
+static int mock_write_enabled = 1;
 
 uint8_t eeprom_read(uint16_t address)
 {
@@ -39,6 +47,7 @@ uint8_t eeprom_read(uint16_t address)
 
 void eeprom_write(uint16_t address, uint8_t data)
 {
+    if (!mock_write_enabled) return;
     if (ee[address] != data) ee[address] = data;
     write_count++;
 }
@@ -69,6 +78,14 @@ static int32_t test_pwm_raw(uint32_t m, int32_t t, uint16_t current)
     uint16_t m_q4 = (uint16_t)((m + 8) >> 4);
     int32_t t_q4 = t >> 4;
     return (((int32_t)current * (int32_t)m_q4) - t_q4) >> 12;
+}
+
+/* ---- Clamping of a raw PWM value, as calibration_current_to_pwm() does ---- */
+static uint16_t test_clamp16(int32_t pwm)
+{
+    if (pwm < 0) return 0;
+    if (pwm > 0xFFFF) return 0xFFFF;
+    return (uint16_t)pwm;
 }
 
 /* ---- Mirror of the documented two-point fit, used to show why a fit is
@@ -269,6 +286,16 @@ static int test_unrealizable(void)
         printf("      clamped at runtime: %u / %u\n", p_lo_clamped, p_hi_clamped);
         if (p_lo_clamped != 0 && p_hi_clamped != 0xFFFF) {
             printf("      FAIL: the points must not be realizable\n");
+            failures++;
+        }
+        /* The clamped values themselves must be checkable, the sub-assertion
+         * above is vacuous for both regression vectors (fit 1 clamps to
+         * 0 / 0, fit 2 to 13135 / 65535): the runtime conversion must
+         * produce exactly the expected clamping of the review's PWM
+         * numbers. */
+        if (p_lo_clamped != test_clamp16(bad->p_lo) ||
+            p_hi_clamped != test_clamp16(bad->p_hi)) {
+            printf("      FAIL: clamping does not match the expected PWM\n");
             failures++;
         }
     }
@@ -508,6 +535,187 @@ static int test_property(void)
 }
 
 /* ======================================================================== */
+/* 9. calibration_commit_current: success                                    */
+/* ======================================================================== */
+static int test_commit_success(void)
+{
+    printf("=== 9. commit: success installs and persists the fit ===\n");
+    int before = failures;
+
+    ee_fill(0x00);
+    cal_m = LOAD_CAL_M; cal_t = LOAD_CAL_T;
+    calibration_init();
+    uint32_t m_new = 0; int32_t t_new = 0;
+    check(calibration_solve(500, 3000, 550, 3300, &m_new, &t_new) == CAL_ERR_NONE,
+          "setup: fit solved");
+
+    uint32_t wc_before = write_count;
+    check(calibration_commit_current(500, 3000, m_new, t_new),
+          "commit accepted");
+    check(cal_m == m_new && cal_t == t_new, "RAM constants updated");
+    /* One write pass: 38 payload bytes (1..39 without the CRC byte), then
+       the CRC, then the magic byte. */
+    check(write_count == wc_before + 40,
+          "exactly one block write (payload + CRC + magic)");
+
+    cal_block_t stored;
+    memcpy(&stored, ee + CAL_EEPROM_OFFSET, sizeof(stored));
+    check(stored.magic == CAL_MAGIC && stored.version == CAL_VERSION,
+          "magic and version written");
+    check(stored.crc == test_crc8(&stored), "CRC written and correct");
+    check(stored.flags == CAL_FLAG_CURRENT, "only CAL_FLAG_CURRENT set");
+    check(stored.curr_lo == 500 && stored.curr_hi == 3000, "points stored");
+    check(stored.curr_m == m_new && stored.curr_t == t_new, "constants stored");
+
+    /* A reboot must restore the committed fit and write nothing. */
+    cal_m = 0; cal_t = 0;
+    calibration_init();
+    check(cal_m == m_new && cal_t == t_new, "reboot restores the fit");
+    check(write_count == wc_before + 40, "reboot wrote nothing");
+
+    return failures > before ? 1 : 0;
+}
+
+/* ======================================================================== */
+/* 10. calibration_commit_current: out-of-range constants                    */
+/* ======================================================================== */
+static int test_commit_range(void)
+{
+    printf("=== 10. commit: out-of-range constants rejected ===\n");
+    int before = failures;
+
+    ee_fill(0x00);
+    cal_m = LOAD_CAL_M; cal_t = LOAD_CAL_T;
+    calibration_init();
+    uint32_t wc_before = write_count;
+    uint32_t m_ref = cal_m; int32_t t_ref = cal_t;
+
+    /* Limits duplicated from the static defines in calibration.c:
+       CAL_M_MIN 150000, CAL_M_MAX 700000, CAL_T_MAX 500000000. */
+    check(!calibration_commit_current(500, 3000, 149999L, 0),
+          "slope below the sanity range rejected");
+    check(!calibration_commit_current(500, 3000, 700001L, 0),
+          "slope above the sanity range rejected");
+    check(!calibration_commit_current(500, 3000, 350445L, 500000001L),
+          "offset above CAL_T_MAX rejected");
+    check(!calibration_commit_current(500, 3000, 350445L, -500000001L),
+          "offset below -CAL_T_MAX rejected");
+    check(write_count == wc_before, "no EEPROM write on a rejected commit");
+    check(cal_m == m_ref && cal_t == t_ref, "RAM constants untouched");
+
+    /* The limits themselves are inclusive. */
+    check(calibration_commit_current(500, 3000, 150000L, 500000000L),
+          "borderline slope/offset accepted (lower)");
+    check(cal_m == 150000L && cal_t == 500000000L, "borderline values installed");
+    ee_fill(0x00);
+    cal_m = LOAD_CAL_M; cal_t = LOAD_CAL_T;
+    calibration_init();
+    check(calibration_commit_current(500, 3000, 700000L, -500000000L),
+          "borderline slope/offset accepted (upper)");
+    check(cal_m == 700000L && cal_t == -500000000L, "borderline values installed");
+
+    return failures > before ? 1 : 0;
+}
+
+/* ======================================================================== */
+/* 11. calibration_commit_current: EEPROM write failure                      */
+/* ======================================================================== */
+static int test_commit_write_failure(void)
+{
+    printf("=== 11. commit: EEPROM write failure leaves everything untouched ===\n");
+    int before = failures;
+
+    ee_fill(0x00);
+    store_block(CAL_FLAG_CURRENT, 350445L, 8821987L, 500, 3000);
+    cal_m = 0; cal_t = 0;
+    calibration_init();
+    check(cal_m == 350445L && cal_t == 8821987L,
+          "setup: old calibration active");
+
+    uint8_t snapshot[EE_SIZE];
+    memcpy(snapshot, ee, sizeof(snapshot));
+    uint32_t m_before = cal_m; int32_t t_before = cal_t;
+    uint32_t m_new = 0; int32_t t_new = 0;
+    check(calibration_solve(500, 3000, 550, 3300, &m_new, &t_new) == CAL_ERR_NONE,
+          "setup: alternative fit solved");
+
+    /* Simulated write failure: eeprom_write() drops every byte, so the
+       read-back verify must fail. */
+    mock_write_enabled = 0;
+    bool ok = calibration_commit_current(500, 3000, m_new, t_new);
+    mock_write_enabled = 1;
+    check(!ok, "commit reports the failure");
+    check(memcmp(ee, snapshot, sizeof(snapshot)) == 0, "EEPROM untouched");
+    check(cal_m == m_before && cal_t == t_before,
+          "RAM calibration still the old one");
+
+    /* The old calibration must still be usable for the runtime conversion. */
+    check(calibration_current_to_pwm(1000) == 5212,
+          "old calibration still converts correctly");
+
+    return failures > before ? 1 : 0;
+}
+
+/* ======================================================================== */
+/* 12. calibration_commit_current: unknown flag bits are preserved           */
+/* ======================================================================== */
+static int test_commit_flags(void)
+{
+    printf("=== 12. commit: unknown flag bits preserved ===\n");
+    int before = failures;
+
+    ee_fill(0x00);
+    store_block(CAL_FLAG_CURRENT | 0x80, 350445L, 8821987L, 500, 3000);
+    cal_m = 0; cal_t = 0;
+    calibration_init();
+    check(cal_m == 350445L, "setup: block with unknown flag bits loaded");
+
+    uint32_t m_new = 0; int32_t t_new = 0;
+    check(calibration_solve(500, 3000, 550, 3300, &m_new, &t_new) == CAL_ERR_NONE,
+          "setup: fit solved");
+    check(calibration_commit_current(500, 3000, m_new, t_new),
+          "commit accepted");
+    cal_block_t stored;
+    memcpy(&stored, ee + CAL_EEPROM_OFFSET, sizeof(stored));
+    check(stored.flags == (uint8_t)(CAL_FLAG_CURRENT | 0x80),
+          "commit ORs its flag, keeps the unknown bits");
+
+    return failures > before ? 1 : 0;
+}
+
+/* ======================================================================== */
+/* 13. calibration_reset: defaults written, all flags cleared                */
+/* ======================================================================== */
+static int test_reset_clears_flags(void)
+{
+    printf("=== 13. reset: defaults written, all channel flags cleared ===\n");
+    int before = failures;
+
+    ee_fill(0x00);
+    store_block(0x07 /* current + both reserved voltage bits */,
+                318629L, 9140616L, 500, 3000);
+    cal_m = 0; cal_t = 0;
+    calibration_init();
+    check(cal_m == 318629L && cal_t == 9140616L,
+          "setup: fully flagged block loaded");
+
+    check(calibration_reset(), "reset accepted");
+    cal_block_t stored;
+    memcpy(&stored, ee + CAL_EEPROM_OFFSET, sizeof(stored));
+    check(stored.flags == 0, "all channel flags cleared");
+    check(stored.magic == CAL_MAGIC && stored.crc == test_crc8(&stored),
+          "default block written validly");
+    check(stored.curr_m == LOAD_CAL_M && stored.curr_t == LOAD_CAL_T,
+          "compile-time defaults stored");
+    check(stored.curr_lo == CAL_CURR_LO_DEFAULT &&
+          stored.curr_hi == CAL_CURR_HI_DEFAULT, "default points stored");
+    check(cal_m == LOAD_CAL_M && cal_t == LOAD_CAL_T,
+          "RAM constants back to the compile-time defaults");
+
+    return failures > before ? 1 : 0;
+}
+
+/* ======================================================================== */
 int main(void)
 {
     printf("ZPB30A1 runtime calibration host tests\n");
@@ -523,6 +731,11 @@ int main(void)
     failed += test_boot_no_write();
     failed += test_applied_error();
     failed += test_property();
+    failed += test_commit_success();
+    failed += test_commit_range();
+    failed += test_commit_write_failure();
+    failed += test_commit_flags();
+    failed += test_reset_clears_flags();
 
     printf("\nRESULT: %d failure(s)\n", failures);
     return failed;

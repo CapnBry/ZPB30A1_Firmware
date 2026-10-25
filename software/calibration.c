@@ -8,7 +8,9 @@ static cal_block_t cal_block;
 
 /* Validation ranges of the two-point fit (calibration notes in the
    measurement procedure). Slopes outside these limits mean one of the points
-   was not measured correctly or does not describe the unit. */
+   was not measured correctly or does not describe the unit. The slope and
+   offset limits are also re-checked by calibration_commit_current() before a
+   fit is installed; they stay internal to this file. */
 #define CAL_A12_MIN       2048L    /* gain 0.5 in Q12 */
 #define CAL_A12_MAX       8192L    /* gain 2.0 in Q12 */
 #define CAL_OFFSET_MAX    2000     /* mA, plausible offset */
@@ -126,6 +128,10 @@ void calibration_init()
 
 uint16_t calibration_current_to_pwm(uint16_t current)
 {
+    /* Total for any uint16_t argument: clamping at CUR_MAX keeps
+       current * m_q4 inside int32 for every allowed cal_m, so a large
+       nonsense input cannot overflow into a wrong small PWM value. */
+    if (current > CUR_MAX) current = CUR_MAX;
     int32_t pwm = cal_pwm_raw(cal_m, cal_t, current);
     if (pwm < 0)    pwm = 0;
     if (pwm > 0xFFFF) pwm = 0xFFFF;
@@ -204,6 +210,37 @@ static bool cal_block_write(const cal_block_t *block)
     for (uint8_t i = 0; i < CAL_EEPROM_SIZE; i++) {
         if (eeprom_read(CAL_EEPROM_OFFSET + i) != data[i]) return false;
     }
+    return true;
+}
+
+bool calibration_commit_current(uint16_t i_lo, uint16_t i_hi,
+                                uint32_t m, int32_t t)
+{
+    /* Validate again, independent of the solver: these constants are about
+       to become the active calibration. Same limits as cal_current_valid();
+       realizability was proven by calibration_solve() for exactly this
+       (m, t) pair and is not re-checked here. */
+    if (m < CAL_M_MIN || m > CAL_M_MAX) return false;
+    if (t > CAL_T_MAX || t < -CAL_T_MAX) return false;
+
+    /* Stage the candidate: the mirror and the runtime constants are only
+       updated once the EEPROM write has been verified. */
+    cal_block_t cand = cal_block;
+    cand.curr_lo = i_lo;
+    cand.curr_hi = i_hi;
+    cand.curr_m = m;
+    cand.curr_t = t;
+    cand.flags |= CAL_FLAG_CURRENT;
+    cand.crc = cal_crc8(&cand);
+    cand.magic = CAL_MAGIC;
+    bool ok = cal_block_write(&cand);
+    /* Writing the EEPROM can take several 10s of milliseconds and swallow
+       timer ticks, same as in settings_update(). */
+    systick_flag &= ~(SYSTICK_OVERFLOW|SYSTICK_COUNT);
+    if (!ok) return false;
+    cal_block = cand;
+    cal_m = m;
+    cal_t = t;
     return true;
 }
 

@@ -101,8 +101,10 @@ extern const cal_channel_t cal_channel_current;
 void calibration_init();
 
 /* Q4 conversion of a setpoint to the PWM compare value, clamped to
-   [0, 0xFFFF]; uses cal_m/cal_t. This is the single conversion used by the
-   runtime path (load.c) and by the solver validation, so the two cannot
+   [0, 0xFFFF]; uses cal_m/cal_t. Total for any uint16_t input: arguments
+   above CUR_MAX are clamped first, which keeps the Q4 multiply inside
+   int32 for every allowed cal_m/cal_t. This is the single conversion used by
+   the runtime path (load.c) and by the solver validation, so the two cannot
    drift apart. */
 uint16_t calibration_current_to_pwm(uint16_t current);
 
@@ -110,15 +112,26 @@ uint16_t calibration_current_to_pwm(uint16_t current);
    The setpoints i_lo/i_hi (mA) had been applied and produced the currents
    a_lo/a_hi (mA) measured on the external meter. On success (CAL_ERR_NONE)
    the corrected m/t values are stored in m_out and t_out, they are not
-   applied until the caller decides to (e.g. together with calibration_save()).
+   applied or stored until the caller passes them to
+   calibration_commit_current().
    Uses the calibration currently in RAM (cal_m/cal_t) as reference, because
    the calibration in RAM was active while the measurements were taken. */
 cal_result_t calibration_solve(uint16_t i_lo, uint16_t i_hi,
                                uint16_t a_lo, uint16_t a_hi,
                                uint32_t *m_out, int32_t *t_out);
 
-/* Write the calibration block to the EEPROM (payload, CRC, magic last) and
-   verify it by reading it back. The load must be disabled while this runs. */
+/* Install a successful two-point fit and persist it. Writes the candidate
+   block to the EEPROM first (payload, CRC, magic last, read-back verify);
+   only on success are the RAM mirror and cal_m/cal_t updated. On failure the
+   old calibration stays active and unchanged. The load must be disabled.
+   i_lo/i_hi must have been validated by calibration_solve() before. */
+bool calibration_commit_current(uint16_t i_lo, uint16_t i_hi,
+                                uint32_t m, int32_t t);
+
+/* Persist whatever is in the RAM mirror (payload, CRC, magic last, read-back
+   verify). Used by calibration_reset(); the wizard must not use it to store
+   a new fit, it stages one through calibration_commit_current() instead.
+   The load must be disabled while this runs. */
 bool calibration_save();
 
 /* Replace the calibration with the compile-time defaults and store them as a

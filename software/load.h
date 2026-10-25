@@ -38,6 +38,12 @@ extern uint16_t calibration_value;
 
 /* Current setpoint after all constraints are taken into account. */
 extern uint16_t current_setpoint;
+/* Transient calibration override, set by the calibration wizard (ui.c):
+   while cal_active is set, load_update() regulates cal_setpoint instead of
+   the user's setpoint and enforces the current limit as in CC mode. The
+   override is never written to settings_t. */
+extern bool cal_active;
+extern uint16_t cal_setpoint;
 /* Runtime current calibration, set by calibration_init(). Definition:
    PWM = (current * cal_m - cal_t) / 2^16. */
 extern uint32_t cal_m;

@@ -18,6 +18,11 @@ uint8_t load_disable_reason = DISABLE_USER;
 
 error_t error = ERROR_NONE;
 
+/* Transient calibration override, see load.h. Set only by the calibration
+   wizard; must never be persisted. */
+bool cal_active = 0;
+uint16_t cal_setpoint = 0;
+
 /* Runtime current calibration. Defaults are the compile-time constants from
    config.h; calibration_init() replaces them from the EEPROM when a valid
    calibration block is stored there.
@@ -62,7 +67,9 @@ void load_enable()
 
 static inline void load_update()
 {
-    uint16_t setpoint = settings.setpoints[settings.mode];
+    /* Calibration run: the wizard's setpoint replaces the user's; the
+       wizard never mutates settings, so nothing here can be persisted. */
+    uint16_t setpoint = cal_active ? cal_setpoint : settings.setpoints[settings.mode];
     uint16_t current = 0;
     uint16_t voltage = adc_get_voltage();
     static uint16_t last_current = 0;
@@ -158,8 +165,10 @@ static inline void load_update()
     uint16_t current_power_limited = (uint32_t)(POW_ABS_MAX) * 1000 / v_load;
     if (current < CUR_MIN) current = CUR_MIN;
     if (current > CUR_MAX) current = CUR_MAX;
-    /* Stay below the current limit in all modes. */
-    if (settings.mode != MODE_CC && current > settings.current_limit) current = settings.current_limit;
+    /* Stay below the current limit in all modes. The calibration run counts
+       as CC for this, so the limit stays effective even if the user's mode
+       was CV/CR/CW when the wizard started. */
+    if ((settings.mode != MODE_CC || cal_active) && current > settings.current_limit) current = settings.current_limit;
     if (load_active && (current > current_power_limited)) {
         if (settings.max_power_action == MAX_P_LIM) {
             current = current_power_limited;

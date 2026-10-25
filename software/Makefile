@@ -4,6 +4,8 @@ CFLAGS=-mstm8 --std-sdcc11 --opt-code-speed
 DEFINES=STM8S005
 PROCESSOR=STM8S005K6
 STLINK_VERSION=2
+FLASH_SIZE=32768
+RAM_SIZE=2048
 
 MAIN=electronic_load.c
 SRC=tm1650.c uart.c utils.c fan.c ui.c systick.c load.c settings.c \
@@ -16,9 +18,9 @@ IHX=$(MAIN:%.c=$(BUILDDIR)/%.ihx)
 HEX=$(IHX:.ihx=.hex)
 DEP=$(REL:%.rel=%.d)
 
-.PHONY: all bin mkdir clean flash unlock clear_eeprom_unix clear_eeprom_windows
+.PHONY: all bin size mkdir clean flash unlock clear_eeprom_unix clear_eeprom_windows
 
-all: bin
+all: bin size
 
 # SDCC includes working wrong on Windows with "/" slahes
 ifeq ($(OS),Windows_NT)
@@ -52,6 +54,12 @@ $(BUILDDIR)/%.rel: %.c
 
 $(HEX): $(IHX)
 	packihx $< > $@
+
+# bin is a prerequisite to ensure the map file exists before it is read.
+size: bin
+	@echo "Memory usage:"
+	@LC_ALL=C awk -v flash_size=$(FLASH_SIZE) -v ram_size=$(RAM_SIZE) \
+		-f memusage.awk $(IHX:.ihx=.map)
 
 clean:
 	rm -rf $(BUILDDIR)

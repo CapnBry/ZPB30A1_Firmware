@@ -641,7 +641,7 @@ enum {
     WIZ_RUN_HI,
     WIZ_MEAS_HI,
     WIZ_EDIT_MEAS_HI,
-    WIZ_COMPUTE,       /* transient: solve, then WIZ_SAVE or WIZ_ERR */
+    /* transient: solve inline in WIZ_EDIT_MEAS_HI, then WIZ_SAVE or WIZ_ERR */
     WIZ_SAVE,          /* top "OK  ", bottom "SAVE"; press -> commit */
     WIZ_DONE,          /* "DONE", pops after ~1 s */
     WIZ_ERR,           /* fit rejected, one-digit reason, pops after ~1 s */
@@ -671,7 +671,7 @@ static void wiz_abort()
     wiz_active = 0;
     /* Disable = load off first, then the override cleared; never the
        reverse order (rule in the calibration plan). */
-    load_disable(DISABLE_USER);
+    if (load_active) load_disable(DISABLE_USER);
     cal_active = 0;
     ui_pop_item();
 }
@@ -888,7 +888,7 @@ void ui_cal_wizard(uint8_t event, const MenuItem *item)
                    calibration setpoint is a usable measurement; anything
                    else (weak PSU, cutoff, ...) aborts and does not offer
                    the editor. */
-                if (load_regulated && current_setpoint == cal_setpoint) {
+                if (load_active && load_regulated && current_setpoint == cal_setpoint) {
                     wiz_state = (wiz_state == WIZ_RUN_LO) ? WIZ_MEAS_LO : WIZ_MEAS_HI;
                     wiz_render(channel);
                 } else {
@@ -940,9 +940,6 @@ void ui_cal_wizard(uint8_t event, const MenuItem *item)
             wiz_state = (wiz_state == WIZ_EDIT_MEAS_LO) ? WIZ_MEAS_LO : WIZ_MEAS_HI;
             wiz_render(channel);
         }
-        break;
-
-    case WIZ_COMPUTE: /* transient: left immediately when entered */
         break;
 
     case WIZ_SAVE:

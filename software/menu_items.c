@@ -70,7 +70,7 @@ static const MenuItem menu_value = {
     .handler = &ui_edit_setpoint,
 };
 
-static const MenuItem menu_beep = {
+const MenuItem menu_beep = {
     .caption = "BEEP",
     .handler = &ui_select_item,
     .data = &settings.beeper_enabled,
@@ -79,76 +79,76 @@ static const MenuItem menu_beep = {
 
 /* Calibration hub: one entry per channel (descriptor-driven wizard) plus
    the confirmed defaults reset. */
-static const MenuItem menu_cal_curr = {
+const MenuItem menu_cal_curr = {
     .caption = "CURR",
     .handler = &ui_cal_wizard,
     .data = &cal_channel_current,
 };
 
-static const MenuItem menu_cal_def = {
+const MenuItem menu_cal_def = {
     .caption = "DEF ",
     .handler = &ui_cal_reset,
 };
 
-static const MenuItem menu_cal = {
+const MenuItem menu_cal = {
     .caption = "CAL ",
     .handler = &ui_submenu,
     .subitems = { &menu_cal_curr, &menu_cal_def, 0 }
 };
 
-static const MenuItem menu_cutoff_enabled = {
+const MenuItem menu_cutoff_enabled = {
     .caption = "ENAB",
     .handler = &ui_select_item,
     .data = &settings.cutoff_enabled,
     .subitems = {&menu_on,  &menu_off,  0}
 };
 
-static const NumericEdit menu_cutoff_value_edit = {
+const NumericEdit menu_cutoff_value_edit = {
     .var = &settings.cutoff_voltage,
     .min = VOLT_MIN,
     .max = VOLT_MAX,
     .dot_offset = VOLT_DOT_OFFSET,
 };
 
-static const MenuItem menu_cutoff_value = {
+const MenuItem menu_cutoff_value = {
     .caption = "CVAL",
     .handler = &ui_edit_value,
     .data = &menu_cutoff_value_edit,
     .value = LED_V
 };
 
-static const NumericEdit menu_current_limit_edit = {
+const NumericEdit menu_current_limit_edit = {
     .var = &settings.current_limit,
     .min = CUR_MIN,
     .max = CUR_MAX,
     .dot_offset = CUR_DOT_OFFSET,
 };
 
-static const MenuItem menu_current_limit = {
+const MenuItem menu_current_limit = {
     .caption = "ILIM",
     .handler = &ui_edit_value,
     .data = &menu_current_limit_edit,
     .value = LED_A,
 };
 
-static const MenuItem menu_lim = {
+const MenuItem menu_lim = {
     .caption = "LIM ",
     .value = 1
 };
 
-static const MenuItem menu_max_power_action = {
+const MenuItem menu_max_power_action = {
     .caption = "MAXP",
     .handler = &ui_select_item,
     .data = &settings.max_power_action,
     .subitems = {&menu_off,  &menu_lim,  0}
 };
 
-static const MenuItem menu_info = {
+const MenuItem menu_info = {
     .caption = "INFO",
     .handler = &ui_info_mode,
 };
 
-static const MenuItem menu_clear_counters = {
+const MenuItem menu_clear_counters = {
     .caption = "CLR",
     .handler = &ui_clear_counters,
 };

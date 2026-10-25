@@ -91,7 +91,7 @@ static inline void load_update()
     }
     #endif
 
-    switch (settings.mode) {
+    switch (load_control_mode()) {
         case MODE_CC:
             current = setpoint;
             break;
@@ -168,7 +168,7 @@ static inline void load_update()
     /* Stay below the current limit in all modes. The calibration run counts
        as CC for this, so the limit stays effective even if the user's mode
        was CV/CR/CW when the wizard started. */
-    if ((settings.mode != MODE_CC || cal_active) && current > settings.current_limit) current = settings.current_limit;
+    if (load_control_mode() != MODE_CC && current > settings.current_limit) current = settings.current_limit;
     if (load_active && (current > current_power_limited)) {
         if (settings.max_power_action == MAX_P_LIM) {
             current = current_power_limited;

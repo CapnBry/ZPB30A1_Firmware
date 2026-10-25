@@ -43,6 +43,14 @@ extern uint16_t current_setpoint;
    the user's setpoint and enforces the current limit as in CC mode. The
    override is never written to settings_t. */
 extern bool cal_active;
+
+/* Control law actually in effect: a calibration run always uses CC,
+   regardless of the user's stored mode. settings.mode itself is never
+   modified, so nothing is persisted when the wizard pops. */
+static inline sink_mode_t load_control_mode()
+{
+    return cal_active ? MODE_CC : settings.mode;
+}
 extern uint16_t cal_setpoint;
 /* Runtime current calibration, set by calibration_init(). Definition:
    PWM = (current * cal_m - cal_t) / 2^16. */

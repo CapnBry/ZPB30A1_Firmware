@@ -60,6 +60,8 @@ void adc_irq() __interrupt(ITC_IRQ_ADC1)
 
 void adc_update()
 {
+    static bool first_update = 1;
+
     temperature = (ADC_CAL_TEMP_T - adc_values[ADC_CH_TEMPERATURE]) / ADC_CAL_TEMP_M;
     v_12V = (uint32_t)adc_values[ADC_CH_12V] * ADC_CAL_12V >> 16;
 
@@ -76,13 +78,24 @@ void adc_update()
     tmpu = tmps > 0 ? tmps : 0;
     v_sense = tmpu * ADC_CAL_SENSE_M >> 16;
 
+    if (first_update) {
+        first_update = 0;
+        /* Don't flag errors on the very first update; the ADC may not
+           have completed a full sample set yet. */
+        return;
+    }
+
     if (v_12V < ADC_12V_MIN) {
         error = ERROR_POWER_SUPPLY;
     }
 
-    if ((adc_values[ADC_CH_LOAD]  < ADC_LOAD_MIN) ||
-        (adc_values[ADC_CH_SENSE] < ADC_SENSE_MIN)) {
-        error = ERROR_POLARITY;
+    /* Skip polarity check during calibration runs: the wizard ramps the
+       load from zero and manages aborts via the regulation gate. */
+    if (!cal_active) {
+        if ((adc_values[ADC_CH_LOAD]  < ADC_LOAD_MIN) ||
+            (adc_values[ADC_CH_SENSE] < ADC_SENSE_MIN)) {
+            error = ERROR_POLARITY;
+        }
     }
 
     if ((v_load > ADC_INPUT_MAX) || (v_sense > ADC_INPUT_MAX)) {
@@ -92,9 +105,25 @@ void adc_update()
 
 void adc_timer()
 {
+    static uint8_t adc_incomplete = 0;
+
     if (adc_count != ADC_SAMPLES_PER_MEASUREMENT) {
-        error = ERROR_INTERNAL;
+        /* The ADC is still filling the current set; process it on the
+           next tick. Never scale or use partial data. A permanently
+           incomplete set (missed ISR / stuck ADC) must not leave the
+           load running on stale voltage and current readings. */
+        if (++adc_incomplete >= ADC_INCOMPLETE_MAX) {
+            error = ERROR_INTERNAL;
+            for (uint8_t i = 0; i < ADC_NUM_CHANNELS; i++) {
+                adc_sum[i] = 0;
+            }
+            adc_count = 0;
+            ADC1->CR1 |= ADC1_CR1_ADON;
+            adc_incomplete = 0;
+        }
+        return;
     }
+    adc_incomplete = 0;
     for (uint8_t i=0; i<ADC_NUM_CHANNELS; i++) {
         // ADC is 10 bits => multiplying by 64 results in a left aligned 16 bit measurement.
         adc_values[i] = adc_sum[i] * (64 / ADC_SAMPLES_PER_MEASUREMENT);

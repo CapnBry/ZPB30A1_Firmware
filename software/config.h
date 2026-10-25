@@ -71,6 +71,9 @@
 
 /* Maximum: 64 */
 #define ADC_SAMPLES_PER_MEASUREMENT 64
+/* Consecutive systicks without a complete ADC set before an internal
+   error is raised (3 ticks = 30 ms at F_SYSTICK 100 Hz). */
+#define ADC_INCOMPLETE_MAX 3
 #define ADC_NUM_CHANNELS 4
 #define ADC_CH_TEMPERATURE 0
 #define ADC_CH_LOAD 1

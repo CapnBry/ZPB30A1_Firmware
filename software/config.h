@@ -47,15 +47,15 @@
 #define AS_DOT_OFFSET 3
 #define WS_DOT_OFFSET 3
 
-/* Defintion of t and m:
-   PWM = (current *  m - t) / 2^16
+/* Definition of t and m:
+   PWM = (current * m - t) / 2^16
 
-   Note: The values below were measured on the author's unit. For a different
-   unit the load current can be far off the setpoint. See calibration.md in
-   the repository root for the measurement and fitting procedure.
-   They are also the default and fallback for the runtime calibration in
-   calibration.c: without a valid calibration in the EEPROM exactly these
-   values are used.
+   The values below were measured on the author's unit. On a different unit
+   the load current can be far off the setpoint. Use the on-device wizard
+   (... -> CAL -> CURR) to store a per-unit calibration in the EEPROM; the
+   complete procedure is in calibration.md. These constants are the
+   compile-time defaults and the fallback whenever the EEPROM block is
+   missing or invalid.
 */
 #define LOAD_CAL_T 8821987L
 #define LOAD_CAL_M 350445L
@@ -81,15 +81,17 @@
 #define ADC_CH_12V 3
 
 
-/* Calibration data: hardware/temperature.ods */
+/* Calibration data: hardware/temperature.ods
+   These measurement channels are compile-time only in v1; see calibration.md
+   ("Voltage and temperature (not user-calibratable in v1)"). */
 #define ADC_CAL_TEMP_M 42
 #define ADC_CAL_TEMP_T 64014
-/* 12V mesurement Voltage divider: 1/3
+/* 12V measurement Voltage divider: 1/3
     V12V in mV = ADC * 5Vref * 3 / 2^16 * 1000mV/V = ADC * 15000 / 2^16
 */
 #define ADC_CAL_12V 15080
 
-/* Defintion of t and m:
+/* Definition of t and m:
    result = (ADC - t) * m / 2^16
 */
 #define ADC_CAL_LOAD_T 1246

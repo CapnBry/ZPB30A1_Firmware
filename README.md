@@ -5,9 +5,11 @@ This repository is there to build an open-source firmware for the 60W ZPB30A1 el
 * Modes
     * CC: Constant current
     * CR: Constant resistance
-    * CP: Constant power
+    * CW: Constant power
     * CV: Constant voltage (slow regulation due to hardware limitations)
 * Easily usable menu system with many configuration options
+* On-device two-point current calibration, stored per unit in the EEPROM
+  (see [calibration.md](calibration.md))
 * Logging of all operating parameters via UART (see
   [serial protocol.md](serial%20protocol.md)).
 * Much better accuracy than stock firmware.
@@ -59,8 +61,17 @@ and if you are flashing for the first time you should also clear the EEPROM:
 The current setpoint accuracy is unit-specific: the constants shipped in
 `software/config.h` come from the author's device, and on a different unit
 the real current can deviate substantially from the setpoint (20% and more).
-Before relying on the setpoints, do a calibration pass for your unit as
-described in [calibration.md](calibration.md).
+Before relying on the setpoints, calibrate your unit.
+
+The recommended method is the on-device wizard, which needs only a DMM and a
+suitable power supply:
+
+    ... -> CAL -> CURR
+
+It runs a two-point measurement, validates the fit and stores it in the EEPROM
+(separate from the settings). `... -> CAL -> DEF` restores the compile-time
+defaults. The complete procedure, the error codes and the fallback
+compile-time method are described in [calibration.md](calibration.md).
 
 ## Menu
 Contrary to the original firmware which requires rebooting to change modes this
@@ -79,6 +90,7 @@ selected unit.
 
 
 ### Menu structure
+* RUN: Run screen; the RUN button enables/disables the load from here
 * MODE
     * CC: Constant current (default)
     * CV: Constant voltage
@@ -86,15 +98,20 @@ selected unit.
     * CW: Constant power
 * VAL: Sets the target value for the currently selected mode. The upper display
         shows the unit.
-* ILIM: Current limit (not active in CC mode)
 * ...: More settings
-    * BEEP: Beeper on/off
+    * ILIM: Current limit (not active in CC mode)
     * CUTO: Undervoltage cutoff
         * ENAB: Enable/disable
         * CVAL: Cutoff value in Volt
     * MAXP: Maximum power action
         * OFF: Turn off load when the required power would be greater than the hardware limit
         * LIM: Reduce load current to stay within hardware limits
+    * BEEP: Beeper on/off
+    * CAL: Current calibration
+        * CURR: Two-point current calibration wizard (see [calibration.md](calibration.md))
+        * DEF: Restore the compile-time calibration defaults
+* CLR: Clear the Ah/Wh counters
+* INFO: Information
 
 ## Run mode
 While in run mode the top display show V, Ah, or Wh. The bottom display show

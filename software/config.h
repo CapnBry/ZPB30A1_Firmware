@@ -60,11 +60,14 @@
 #define LOAD_CAL_T 8821987L
 #define LOAD_CAL_M 350445L
 
-/* Runtime current calibration (calibration.c):
-   Default measurement points (mA) and the wizard inactivity timeout. */
+/* Runtime current calibration (calibration.c, calibration wizard in ui.c):
+   Default measurement points (mA) and the wizard's timings. F_SYSTICK is
+   100 Hz, so the load settles for 500 ms before a measurement may be taken
+   and the wizard aborts after 60 s without user input. */
 #define CAL_CURR_LO_DEFAULT 500
 #define CAL_CURR_HI_DEFAULT 3000
-#define CAL_TIMEOUT_MS 60000
+#define CAL_SETTLE_TICKS 50
+#define CAL_TIMEOUT_TICKS 6000
 
 /* Maximum: 64 */
 #define ADC_SAMPLES_PER_MEASUREMENT 64

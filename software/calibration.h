@@ -120,6 +120,11 @@ cal_result_t calibration_solve(uint16_t i_lo, uint16_t i_hi,
                                uint16_t a_lo, uint16_t a_hi,
                                uint32_t *m_out, int32_t *t_out);
 
+/* The measurement points of the current channel as the wizard should
+   prefill them: the values stored in the RAM mirror when it is calibrated,
+   otherwise the descriptor's defaults. */
+void calibration_get_points(uint16_t *lo, uint16_t *hi);
+
 /* Install a successful two-point fit and persist it. Writes the candidate
    block to the EEPROM first (payload, CRC, magic last, read-back verify);
    only on success are the RAM mirror and cal_m/cal_t updated. On failure the

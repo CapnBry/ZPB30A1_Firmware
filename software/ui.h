@@ -18,15 +18,17 @@ typedef enum {
 
 ui_edit_result_t ui_edit_value_internal(uint8_t event, const NumericEdit *edit, uint8_t leds);
 
-void ui_mainmenu(uint8_t event, MenuItem *item);
-void ui_submenu(uint8_t event, MenuItem *item);
-void ui_select_item(uint8_t event, MenuItem *item);
+void ui_mainmenu(uint8_t event, const MenuItem *item);
+void ui_submenu(uint8_t event, const MenuItem *item);
+void ui_select_item(uint8_t event, const MenuItem *item);
 void ui_edit_value(uint8_t event, const MenuItem *item);
 void ui_edit_setpoint(uint8_t event, const MenuItem *item);
 void ui_run_mode(uint8_t event, const MenuItem *item);
 void ui_info_mode(uint8_t event, const MenuItem *item);
 void ui_error_handler(uint8_t event, const MenuItem *item);
 void ui_clear_counters(uint8_t event, const MenuItem *item);
+void ui_cal_wizard(uint8_t event, const MenuItem *item);
+void ui_cal_reset(uint8_t event, const MenuItem *item);
 
 void ui_activate_load();
 void ui_disable_load();

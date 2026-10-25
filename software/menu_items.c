@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "settings.h"
 #include "config.h"
+#include "calibration.h"
 
 /* Note: The menu items must be defined before they are referenced, since a
    tentative declaration followed by a definition is rejected by SDCC >= 4. */
@@ -74,6 +75,25 @@ static const MenuItem menu_beep = {
     .handler = &ui_select_item,
     .data = &settings.beeper_enabled,
     .subitems = {&menu_on,  &menu_off,  0}
+};
+
+/* Calibration hub: one entry per channel (descriptor-driven wizard) plus
+   the confirmed defaults reset. */
+static const MenuItem menu_cal_curr = {
+    .caption = "CURR",
+    .handler = &ui_cal_wizard,
+    .data = &cal_channel_current,
+};
+
+static const MenuItem menu_cal_def = {
+    .caption = "DEF ",
+    .handler = &ui_cal_reset,
+};
+
+static const MenuItem menu_cal = {
+    .caption = "CAL ",
+    .handler = &ui_submenu,
+    .subitems = { &menu_cal_curr, &menu_cal_def, 0 }
 };
 
 static const MenuItem menu_cutoff_enabled = {
@@ -155,7 +175,7 @@ static const MenuItem menu_cutoff = {
 static const MenuItem menu_settings = {
     .caption = "...",
     .handler = &ui_submenu,
-    .subitems = { &menu_current_limit, &menu_cutoff, &menu_max_power_action, &menu_beep, 0}
+    .subitems = { &menu_current_limit, &menu_cutoff, &menu_max_power_action, &menu_beep, &menu_cal, 0}
 };
 
 const MenuItem menu_main = {

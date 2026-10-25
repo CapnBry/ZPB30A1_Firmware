@@ -138,6 +138,17 @@ uint16_t calibration_current_to_pwm(uint16_t current)
     return (uint16_t)pwm;
 }
 
+void calibration_get_points(uint16_t *lo, uint16_t *hi)
+{
+    if (cal_block.flags & CAL_FLAG_CURRENT) {
+        *lo = cal_block.curr_lo;
+        *hi = cal_block.curr_hi;
+    } else {
+        *lo = cal_channel_current.default_lo;
+        *hi = cal_channel_current.default_hi;
+    }
+}
+
 cal_result_t calibration_solve(uint16_t i_lo, uint16_t i_hi,
                                uint16_t a_lo, uint16_t a_hi,
                                uint32_t *m_out, int32_t *t_out)

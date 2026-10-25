@@ -162,16 +162,19 @@ static inline void load_update()
     /* NOTE: Here v_load is used directly instead of adc_get_voltage, because
        for the MOSFET's power dissipation only the voltage that reaches the load's
        terminals is relevant. */
-    uint16_t current_power_limited = (uint32_t)(POW_ABS_MAX) * 1000 / v_load;
+    uint32_t current_power_limited = 0;
+    if (v_load > 0) {
+        current_power_limited = (uint32_t)(POW_ABS_MAX) * 1000 / v_load;
+    }
     if (current < CUR_MIN) current = CUR_MIN;
     if (current > CUR_MAX) current = CUR_MAX;
     /* Stay below the current limit in all modes. The calibration run counts
        as CC for this, so the limit stays effective even if the user's mode
        was CV/CR/CW when the wizard started. */
     if (load_control_mode() != MODE_CC && current > settings.current_limit) current = settings.current_limit;
-    if (load_active && (current > current_power_limited)) {
+    if (load_active && v_load > 0 && ((uint32_t)current > current_power_limited)) {
         if (settings.max_power_action == MAX_P_LIM) {
-            current = current_power_limited;
+            current = (current_power_limited > CUR_MAX) ? CUR_MAX : (uint16_t)current_power_limited;
         } else {
             error = ERROR_OVERLOAD;
         }

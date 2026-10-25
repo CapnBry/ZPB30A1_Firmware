@@ -670,8 +670,13 @@ static void wiz_abort()
     if (!wiz_active) return;
     wiz_active = 0;
     /* Disable = load off first, then the override cleared; never the
-       reverse order (rule in the calibration plan). */
-    if (load_active) load_disable(DISABLE_USER);
+       reverse order (rule in the calibration plan). Clear a stale
+       DISABLE_ERROR (the RUN LED would otherwise blink forever), but
+       preserve DISABLE_CUTOFF so the user can still see why the run
+       ended. */
+    if (load_active || load_disable_reason == DISABLE_ERROR) {
+        load_disable(DISABLE_USER);
+    }
     cal_active = 0;
     ui_pop_item();
 }
@@ -869,7 +874,9 @@ void ui_cal_wizard(uint8_t event, const MenuItem *item)
             /* The HI point must stay above the LO point; refuse to run
                otherwise (the solver would reject the fit anyway). */
             if (!lo && wiz_point_hi <= wiz_point_lo) break;
-            /* Enable: override first, load second; never the reverse. */
+            /* Enable: override first, load second; never the reverse.
+               Clear any stale error from the previous ADC cycle (load was off). */
+            error = ERROR_NONE;
             cal_active = 1;
             cal_setpoint = lo ? wiz_point_lo : wiz_point_hi;
             load_enable();

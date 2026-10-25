@@ -236,7 +236,8 @@ bool calibration_commit_current(uint16_t i_lo, uint16_t i_hi,
 
     /* Stage the candidate: the mirror and the runtime constants are only
        updated once the EEPROM write has been verified. */
-    cal_block_t cand = cal_block;
+    cal_block_t cand;
+    cand = cal_block;
     cand.curr_lo = i_lo;
     cand.curr_hi = i_hi;
     cand.curr_m = m;

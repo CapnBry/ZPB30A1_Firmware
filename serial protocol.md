@@ -45,7 +45,7 @@ Commands:
 * M: Mode (0=CC, 1=CW, 2=CR, 3=CV, see settings.h)
 * c: Setpoint CC in mA
 * w: Setpoint CW in mW
-* r: Setpoint CR in 0.1 Ohm
+* r: Setpoint CR in 10 mOhm
 * v: Setpoint CV in mV
 * E: Write settings to EEPROM. Only when settings are changed via the UI they are automatically written to EEPROM. Settings via the serial interface must be written using this command explicitly. However when the user changes any setting via the UI ALL settings are written to EEPROM.
 * e: Read settings from EEPROM. This should be used after controlling the device via the serial interface to restore user's settings.

@@ -46,7 +46,7 @@ void settings_init(void)
         settings.mode = MODE_CC;
         settings.setpoints[MODE_CC] = 1000;
         settings.setpoints[MODE_CW] = 30000;
-        settings.setpoints[MODE_CR] = 50000;
+        settings.setpoints[MODE_CR] = 1000;
         settings.setpoints[MODE_CV] = 10000;
         settings.beeper_enabled = 1;
         settings.cutoff_enabled = 0;

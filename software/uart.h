@@ -4,6 +4,8 @@
 void uart_init(void);
 void uart_timer(void);
 void uart_handler(void);
+/* Send a SET: line with the current settings as soon as possible. */
+void uart_request_settings(void);
 
 #define CMD_RESET '!'
 

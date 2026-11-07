@@ -10,6 +10,7 @@
 #include "inc/stm8s_gpio.h"
 #include "inc/stm8s_itc.h"
 #include "adc.h"
+#include "uart.h"
 #include "calibration.h"
 
 typedef enum {
@@ -258,6 +259,7 @@ static void ui_pop_item(void)
     }
     ui_leds(0);
     settings_update(); //Store changed value to eeprom
+    uart_request_settings(); //Report it over UART
     current_item->handler(EVENT_RETURN, current_item);
 }
 

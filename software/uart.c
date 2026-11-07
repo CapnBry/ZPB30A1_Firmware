@@ -23,6 +23,39 @@ int putchar(int c)
 }
 
 static uint8_t cnt = 0;
+/* SET: line state. set_pending requests one, set_cnt is the step of the
+   line being printed (0 = none in progress). */
+static bool set_pending = 1;
+static uint8_t set_cnt = 0;
+static uint8_t val_lines = 0;
+
+void uart_request_settings(void)
+{
+    set_pending = 1;
+}
+
+/* Print one piece of the SET: line per call, like the VAL: line. */
+static void uart_print_settings(void)
+{
+    if (set_cnt == 1) {
+        printf("SET: M %u ", (unsigned int)settings.mode);
+    } else if (set_cnt == 2) {
+        printf("c %u w %u ", (unsigned int)settings.setpoints[MODE_CC],
+                             (unsigned int)settings.setpoints[MODE_CW]);
+    } else if (set_cnt == 3) {
+        printf("r %u v %u ", (unsigned int)settings.setpoints[MODE_CR],
+                             (unsigned int)settings.setpoints[MODE_CV]);
+    } else if (set_cnt == 4) {
+        printf("U %u u %u ", (unsigned int)settings.cutoff_enabled,
+                             (unsigned int)settings.cutoff_voltage);
+    } else {
+        printf("X %u\r\n", (unsigned int)load_disable_reason);
+        set_cnt = 0;
+        return;
+    }
+    set_cnt++;
+}
+
 void uart_timer(void)
 {
     static uint16_t timer = 0;
@@ -54,7 +87,10 @@ static inline void set_error(uint8_t code)
 
 void uart_handler(void)
 {
-    if (cnt) {
+    if (set_cnt) {
+        // Finish a SET: line before anything else starts printing
+        uart_print_settings();
+    } else if (cnt) {
         if (cnt == 1) {
             char status = 'D';
             if (load_active) {
@@ -78,11 +114,20 @@ void uart_handler(void)
         } else {
             printf("\r\n");
             cnt = 0; // Disable output till new trigger by uart_timer()
+            // Report the settings about once a second
+            if (++val_lines >= F_LOG) {
+                val_lines = 0;
+                set_pending = 1;
+            }
         }
         if (cnt) cnt++;
     } else if (error_code) {
         printf("ERR:%d %d %d\r\n", cmd, param, error_code);
         error_code = 0;
+    } else if (set_pending) {
+        set_pending = 0;
+        set_cnt = 1;
+        uart_print_settings();
     } else if (state == STATE_WAITING_FOR_EXECUTION) {
         printf("CMD:%c%d\r\n", cmd, param);
 
@@ -95,6 +140,11 @@ void uart_handler(void)
             case 'S': // Stop
                 if (load_active) {
                     ui_disable_load();
+                } else {
+                    /* Already stopped: acknowledge an automatic stop, like
+                       the encoder button on the run screen. Silences the
+                       cutoff beeper and the blinking RUN LED. */
+                    load_disable_reason = DISABLE_USER;
                 }
                 break;
             case 'M': // Mode
@@ -132,6 +182,26 @@ void uart_handler(void)
                     set_error(ERR_OUT_OF_RANGE);
                 }
                 break;
+            case 'U': // Cutoff enable
+                if (param <= 1) {
+                    settings.cutoff_enabled = param;
+                } else {
+                    set_error(ERR_OUT_OF_RANGE);
+                }
+                break;
+            case 'u': // Cutoff voltage
+                if (param >= VOLT_MIN && param <= VOLT_MAX) {
+                    settings.cutoff_voltage = param;
+                } else {
+                    set_error(ERR_OUT_OF_RANGE);
+                }
+                break;
+            case 'C': // Clear counters
+                mWatt_seconds = 0;
+                mAmpere_seconds = 0;
+                break;
+            case '?': // Request a SET: line (sent below)
+                break;
             case 'E': // Store settings
                 settings_update();
                 break;
@@ -140,6 +210,9 @@ void uart_handler(void)
                 break;
             default:
                 set_error(ERR_INVALID_COMMAND);
+        }
+        if (!error_code) {
+            set_pending = 1; // Report the result of the command
         }
         cmd = 0;
         param = 0;

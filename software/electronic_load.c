@@ -13,6 +13,7 @@
 #include "inc/stm8s_clk.h"
 #include "inc/stm8s_exti.h"
 #include "inc/stm8s_itc.h"
+#include "inc/stm8s_iwdg.h"
 
 void clock_init(void)
 {
@@ -53,6 +54,21 @@ void gpio_init(void)
 
 
 
+/* Independent watchdog, ~1 s (LSI 128 kHz / 256, reload 255). Any hang -- an
+   interrupt storm starving the main loop, a stuck peripheral wait -- resets
+   the MCU instead of leaving the load unresponsive until power-cycled, and it
+   comes back up with the load off. The longest legitimate stall in the main
+   loop is settings_update() rewriting the EEPROM, ~100 ms. Started after the
+   power-on delay; once started it cannot be stopped. */
+static void watchdog_init(void)
+{
+    IWDG->KR = IWDG_KEY_ENABLE;          // start counting (forces the LSI on)
+    IWDG->KR = IWDG_WriteAccess_Enable;  // unlock PR and RLR
+    IWDG->PR = IWDG_Prescaler_256;
+    IWDG->RLR = 0xFF;
+    IWDG->KR = IWDG_KEY_REFRESH;         // load the new reload value, relock
+}
+
 void main(void) {
     clock_init();
     gpio_init();
@@ -77,7 +93,9 @@ void main(void) {
     
     systick_flag = 0; // Clear any overflows up to this point
     error = 0; // Clear possible supply voltage error
+    watchdog_init();
     while (1) {
+        IWDG->KR = IWDG_KEY_REFRESH;
         if (systick_flag & SYSTICK_OVERFLOW)
         {
             error = ERROR_TIMER_OVERFLOW;

@@ -96,6 +96,9 @@ uint16_t adc_get_voltage(void)
     return mock_voltage;
 }
 
+/* ---- uart stub ---- */
+void uart_request_settings(void) {}
+
 /* ---- beeper stub ---- */
 static int beep_on_calls;
 

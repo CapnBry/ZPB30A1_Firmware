@@ -73,16 +73,25 @@ typedef enum {
     STATE_DIGITS,
     STATE_WAITING_FOR_EXECUTION,
     STATE_UNINITIALIZED,
+    STATE_EXECUTING,  // uart_handler() has taken the command and is running it
+    STATE_DISCARD,    // a bad byte cancelled this line; skip to its end
 } uart_state_t;
 
-static uart_state_t state = STATE_UNINITIALIZED;
-static uint8_t cmd;
-static uint16_t param;
-static uint8_t error_code = 0;
+/* cmd, param, error_code and state are shared with uart_rx_irq(). The main
+   loop takes a consistent copy with interrupts off, never piecemeal. */
+static volatile uart_state_t state = STATE_UNINITIALIZED;
+static volatile uint8_t cmd;
+static volatile uint16_t param;
+static volatile uint8_t error_code = 0;
 
-static inline void set_error(uint8_t code)
+/* Every failure goes through here: the line is reported and abandoned, never
+   executed. Before, an error only queued an ERR: report while the command
+   itself still ran once the line ended -- so a burst of junk (a host's boot
+   log, line noise) could run whatever its first byte happened to name. */
+static void reject(uint8_t code)
 {
     error_code = code;
+    state = STATE_DISCARD;
 }
 
 void uart_handler(void)
@@ -122,16 +131,30 @@ void uart_handler(void)
         }
         if (cnt) cnt++;
     } else if (error_code) {
-        printf("ERR:%d %d %d\r\n", cmd, param, error_code);
+        // A line rejected while it was being received
+        uint8_t c, code;
+        uint16_t p;
+        disableInterrupts();
+        c = cmd;
+        p = param;
+        code = error_code;
         error_code = 0;
+        enableInterrupts();
+        printf("ERR:%d %u %d\r\n", c, p, code);
     } else if (set_pending) {
         set_pending = 0;
         set_cnt = 1;
         uart_print_settings();
     } else if (state == STATE_WAITING_FOR_EXECUTION) {
-        printf("CMD:%c%d\r\n", cmd, param);
+        uint8_t c, code = ERR_NONE;
+        uint16_t p;
+        disableInterrupts();
+        c = cmd;
+        p = param;
+        state = STATE_EXECUTING;
+        enableInterrupts();
 
-        switch (cmd) {
+        switch (c) {
             case 'R': // Run
                 if (!load_active) {
                     ui_activate_load(); //This is handled in the UI code because we want to show the run mode on the display as well.
@@ -148,52 +171,52 @@ void uart_handler(void)
                 }
                 break;
             case 'M': // Mode
-                if (param < NUM_MODES) {
-                    settings.mode = param;
+                if (p < NUM_MODES) {
+                    settings.mode = p;
                 } else {
-                    set_error(ERR_MODE_INVALID);
+                    code = ERR_MODE_INVALID;
                 }
                 break;
             case 'c': // Setpoint CC
-                if (param >= CUR_MIN && param <= CUR_MAX) {
-                    settings.setpoints[MODE_CC] = param;
+                if (p >= CUR_MIN && p <= CUR_MAX) {
+                    settings.setpoints[MODE_CC] = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'w': // Setpoint CW
-                if (param >= POW_MIN && param <= POW_MAX) {
-                    settings.setpoints[MODE_CW] = param;
+                if (p >= POW_MIN && p <= POW_MAX) {
+                    settings.setpoints[MODE_CW] = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'r': // Setpoint CR
-                if (param >= R_MIN && param <= R_MAX) {
-                    settings.setpoints[MODE_CR] = param;
+                if (p >= R_MIN && p <= R_MAX) {
+                    settings.setpoints[MODE_CR] = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'v': // Setpoint CV
-                if (param >= VOLT_MIN && param <= VOLT_MAX) {
-                    settings.setpoints[MODE_CV] = param;
+                if (p >= VOLT_MIN && p <= VOLT_MAX) {
+                    settings.setpoints[MODE_CV] = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'U': // Cutoff enable
-                if (param <= 1) {
-                    settings.cutoff_enabled = param;
+                if (p <= 1) {
+                    settings.cutoff_enabled = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'u': // Cutoff voltage
-                if (param >= VOLT_MIN && param <= VOLT_MAX) {
-                    settings.cutoff_voltage = param;
+                if (p >= VOLT_MIN && p <= VOLT_MAX) {
+                    settings.cutoff_voltage = p;
                 } else {
-                    set_error(ERR_OUT_OF_RANGE);
+                    code = ERR_OUT_OF_RANGE;
                 }
                 break;
             case 'C': // Clear counters
@@ -209,20 +232,53 @@ void uart_handler(void)
                 settings_init();
                 break;
             default:
-                set_error(ERR_INVALID_COMMAND);
+                code = ERR_INVALID_COMMAND;
         }
-        if (!error_code) {
+
+        /* Exactly one reply per command, sent once it has run: CMD: if it
+           took effect, ERR: if not. (CMD: used to go out first, followed by a
+           second ERR:0 0 <code> line if the command then failed.) Replying
+           after the fact also means the host sends nothing more while an E
+           is still writing the EEPROM, when this CPU can't take a byte. */
+        if (code) {
+            printf("ERR:%d %u %d\r\n", c, p, code);
+        } else {
+            printf("CMD:%c%u\r\n", c, p);
             set_pending = 1; // Report the result of the command
         }
-        cmd = 0;
-        param = 0;
-        state = STATE_IDLE;
+
+        disableInterrupts();
+        // A byte that arrived meanwhile has already moved state on
+        if (state == STATE_EXECUTING) {
+            state = STATE_IDLE;
+        }
+        enableInterrupts();
     }
 }
 
 void uart_rx_irq(void) __interrupt(ITC_IRQ_UART2_RX)
 {
+    /* SR first, then DR: that sequence is what clears the error flags. Reading
+       DR alone leaves an overrun flagged, and with RIEN set an overrun raises
+       this interrupt again the moment it returns -- forever, starving the main
+       loop (display, encoder, buttons, UART output) until a power cycle. An
+       overrun happens whenever a byte arrives while interrupts are held off,
+       e.g. through the tens of ms of an EEPROM write. */
+    uint8_t sr = UART2->SR;
     char c = UART2->DR;
+
+    if (sr & (UART2_SR_OR | UART2_SR_NF | UART2_SR_FE | UART2_SR_PE)) {
+        // A byte of this line was lost or garbled: none of it can be trusted
+        if (state != STATE_UNINITIALIZED) {
+            reject(ERR_RX_ERROR);
+        }
+        return;
+    }
+    if (state == STATE_UNINITIALIZED && c != CMD_RESET) {
+        // Ignore everything till the interface is initialized
+        return;
+    }
+
     if (c == CMD_RESET) {
         state = STATE_IDLE;
         cmd = 0;
@@ -230,25 +286,46 @@ void uart_rx_irq(void) __interrupt(ITC_IRQ_UART2_RX)
         if (error == ERROR_COMMAND) {
             error_code = ERR_NONE;
         }
-    } else if (state == STATE_UNINITIALIZED) {
-        // Ignore everything till the interface is initialized
-    } else if (c == '\n' || c == '\r') {
-        if (state != STATE_IDLE) {
-            state = STATE_WAITING_FOR_EXECUTION;
-        }
-    } else if (state == STATE_IDLE) {
-        cmd = c;
-        param = 0;
-        state = STATE_DIGITS;
-    } else if (state == STATE_DIGITS) {
-        if (c >= '0' && c <= '9') {
-            param *= 10;
-            param += c - '0';
-        } else {
-            set_error(ERR_NOT_A_DIGIT);
-        }
-    } else {
-        set_error(ERR_SHOULD_NOT_HAPPEN);
+        return;
+    }
+
+    bool eol = (c == '\n' || c == '\r');
+    switch (state) {
+        case STATE_IDLE:
+            if (!eol) {
+                cmd = c;
+                param = 0;
+                state = STATE_DIGITS;
+            }
+            break;
+        case STATE_DIGITS:
+            if (eol) {
+                state = STATE_WAITING_FOR_EXECUTION;
+            } else if (c < '0' || c > '9') {
+                reject(ERR_NOT_A_DIGIT);
+            } else if (param > 6553 || (param == 6553 && c > '5')) {
+                // Would wrap: 70000 must not arrive as 4464
+                reject(ERR_OUT_OF_RANGE);
+            } else {
+                param = param * 10 + (c - '0');
+            }
+            break;
+        case STATE_WAITING_FOR_EXECUTION:
+        case STATE_EXECUTING:
+            // The second half of a \r\n is fine; anything else means the
+            // sender didn't wait for the reply. A command still waiting is
+            // cancelled rather than run on a line that may be junk.
+            if (!eol) {
+                reject(ERR_SHOULD_NOT_HAPPEN);
+            }
+            break;
+        case STATE_DISCARD:
+            if (eol) {
+                state = STATE_IDLE;
+            }
+            break;
+        default:
+            reject(ERR_SHOULD_NOT_HAPPEN);
     }
     //TODO: Calibration mode
 }

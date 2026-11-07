@@ -16,6 +16,7 @@ typedef enum {
     ERR_NOT_A_DIGIT,
     ERR_SHOULD_NOT_HAPPEN, // = Internal logic error
     ERR_INVALID_COMMAND,
+    ERR_RX_ERROR, // a byte was lost or garbled (UART overrun, noise, framing)
 } error_codes_t;
 
 #endif
